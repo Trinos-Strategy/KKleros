@@ -11,18 +11,10 @@ import "../libraries/DataStructures.sol";
 
 /**
  * @title EscrowBridge
- * @notice XRPL↔EVM Sidechain escrow bridge via Axelar GMP
+ * @notice XRPL<>EVM Sidechain escrow bridge via Axelar GMP
  * @dev Does NOT extend AxelarExecutable to avoid immutable/UUPS conflict.
- *      Stores gateway & gasService as regular storage variables set in initialize().
- *
- * Access control:
- *   - registerEscrow: GATEWAY_ROLE (Axelar GMP 수신)
- *   - releaseFunds / refundFunds: ARBITRATOR_ROLE (KlerosCore만)
- *   - retryRelease: permissionless (최대 3회)
- *
- * Key parameters:
- *   - MAX_RETRY = 3 (설계문서 §6: 3회 실패 시 Guardian Council 개입)
- *   - FEE_RATE_BPS = 300 (3%)
+ *      Stores gateway and gasService as regular storage variables.
+ *      MAX_RETRY = 3, FEE_RATE = 300 bps (3%).
  */
 contract EscrowBridge is
     AccessControlUpgradeable,
@@ -30,16 +22,15 @@ contract EscrowBridge is
     UUPSUpgradeable,
     IEscrowBridge
 {
-    bytes32 public constant ARBITRATOR_ROLE = keccak256("ARBITRATOR_ROLE");
+    bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
     bytes32 public constant GATEWAY_ROLE = keccak256("GATEWAY_ROLE");
 
     uint256 public constant MAX_RETRY = 3;
-    uint256 public constant FEE_RATE_BPS = 300; // 3%
+    uint256 public constant FEE_RATE_BPS = 300;
 
     IAxelarGateway public gateway;
     IAxelarGasService public gasService;
 
-    // escrowID => escrow state
     struct EscrowState {
         uint256 disputeID;
         uint256 amount;
@@ -64,14 +55,12 @@ contract EscrowBridge is
         __ReentrancyGuard_init();
         __UUPSUpgradeable_init();
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
-        _grantRole(ARBITRATOR_ROLE, _admin);
+        _grantRole(OPERATOR_ROLE, _admin);
         gateway = IAxelarGateway(_gateway);
         gasService = IAxelarGasService(_gasService);
     }
 
     function _authorizeUpgrade(address) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
-
-    // ── IEscrowBridge Core ──
 
     function registerEscrow(
         bytes32 _escrowID,
@@ -79,26 +68,24 @@ contract EscrowBridge is
         address _claimant,
         address _respondent
     ) external override onlyRole(GATEWAY_ROLE) {
-        // TODO: implement — validate GMP source, create escrow record
+        // TODO: implement
         revert("Not implemented");
     }
 
-    function releaseFunds(bytes32 _escrowID, address _winner) external override onlyRole(ARBITRATOR_ROLE) nonReentrant {
-        // TODO: implement — send Axelar GMP to XRPL EscrowFinish
+    function releaseFunds(bytes32 _escrowID, address _winner) external override onlyRole(OPERATOR_ROLE) nonReentrant {
+        // TODO: implement
         revert("Not implemented");
     }
 
-    function refundFunds(bytes32 _escrowID) external override onlyRole(ARBITRATOR_ROLE) nonReentrant {
-        // TODO: implement — send Axelar GMP to XRPL EscrowCancel
+    function refundFunds(bytes32 _escrowID) external override onlyRole(OPERATOR_ROLE) nonReentrant {
+        // TODO: implement
         revert("Not implemented");
     }
 
     function retryRelease(bytes32 _escrowID) external override nonReentrant {
-        // TODO: implement — permissionless, max 3 retries, then Guardian
+        // TODO: implement
         revert("Not implemented");
     }
-
-    // ── IEscrowBridge Views ──
 
     function getEscrow(bytes32 _escrowID) external view override returns (
         uint256 disputeID,
@@ -115,8 +102,6 @@ contract EscrowBridge is
         return _escrows[_escrowID].retryCount;
     }
 
-    // ── Axelar incoming (replaces AxelarExecutable._execute) ──
-
     function execute(
         bytes32 _commandId,
         string calldata _sourceChain,
@@ -127,6 +112,6 @@ contract EscrowBridge is
             gateway.validateContractCall(_commandId, _sourceChain, _sourceAddress, keccak256(_payload)),
             "Not approved by gateway"
         );
-        // TODO: decode payload → registerEscrow or handle XRPL callbacks
+        // TODO: decode payload and process incoming XRPL escrow events
     }
 }
