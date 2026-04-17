@@ -64,7 +64,12 @@ export async function deployFullSuite() {
   // 8. Wire up cross-references
   await (disputeKit as any).connect(admin).setKlerosCore(await core.getAddress());
   await (sortition as any).connect(admin).setKlerosCore(await core.getAddress());
-  // TODO: grant OPERATOR_ROLE to KlerosCore on EscrowBridge, TRANSFER_CONTROLLER_ROLE on KPNK to SortitionModule
+  await (kpnk as any).connect(admin).setSortitionModule(await sortition.getAddress());
+  // Seed admin with the full K-PNK supply so downstream tests that assume funded admin still work
+  await (kpnk as any)
+    .connect(admin)
+    .initialDistribution([admin.address], [ethers.parseUnits("1000000000", 18)]);
+  // TODO: grant OPERATOR_ROLE to KlerosCore on EscrowBridge
 
   return { admin, arbitrator, juror1, juror2, juror3, claimant, respondent, daoTreasury, operationsWallet, kpnk, sortition, disputeKit, core, escrow, gateway, governor, timelock };
 }

@@ -72,9 +72,18 @@ async function main() {
   // 8. Wire access control
   await (disputeKit as any).setKlerosCore(await core.getAddress());
   await (sortition as any).setKlerosCore(await core.getAddress());
+  await (kpnk as any).setSortitionModule(await sortition.getAddress());
   console.log("DisputeKit + SortitionModule -> KlerosCore linked");
+  console.log("KPNKToken -> SortitionModule linked");
+  // Seed deployer for local/testnet experimentation (skip on mainnet once you add a proper distribution plan)
+  if (process.env.SEED_DEPLOYER === "true") {
+    await (kpnk as any).initialDistribution(
+      [deployer.address],
+      [ethers.parseUnits("1000000000", 18)]
+    );
+    console.log("KPNKToken: initial 1B distributed to deployer");
+  }
   // TODO: Grant OPERATOR_ROLE on EscrowBridge to KlerosCore
-  // TODO: Grant TRANSFER_CONTROLLER_ROLE on KPNKToken to SortitionModule
   // TODO: Grant GOVERNOR_ROLE on KlerosCore to Governor
 
   console.log("\nDeployment complete. Remember to wire access control roles.");
