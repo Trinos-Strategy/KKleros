@@ -16,9 +16,9 @@ async function main() {
   await sortition.waitForDeployment();
   console.log("SortitionModule:", await sortition.getAddress());
 
-  // 3. DisputeKit
+  // 3. DisputeKit (admin, klerosCore placeholder=deployer — wired via setKlerosCore after KlerosCore deploys)
   const DisputeKit = await ethers.getContractFactory("DisputeKit");
-  const disputeKit = await upgrades.deployProxy(DisputeKit, [deployer.address], { kind: "uups" });
+  const disputeKit = await upgrades.deployProxy(DisputeKit, [deployer.address, deployer.address], { kind: "uups" });
   await disputeKit.waitForDeployment();
   console.log("DisputeKit:", await disputeKit.getAddress());
 
@@ -66,7 +66,9 @@ async function main() {
   console.log("KKlerosGovernor:", await governor.getAddress());
 
   // 8. Wire access control
-  // TODO: Grant OPERATOR_ROLE on SortitionModule/DisputeKit/EscrowBridge to KlerosCore
+  await (disputeKit as any).setKlerosCore(await core.getAddress());
+  console.log("DisputeKit -> KlerosCore linked");
+  // TODO: Grant OPERATOR_ROLE on SortitionModule/EscrowBridge to KlerosCore
   // TODO: Grant TRANSFER_CONTROLLER_ROLE on KPNKToken to SortitionModule
   // TODO: Grant GOVERNOR_ROLE on KlerosCore to Governor
 
