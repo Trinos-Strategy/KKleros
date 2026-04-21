@@ -14,7 +14,7 @@
 **공개 Issue로 올리지 마세요.** 스마트컨트랙트 취약점은 자금·분쟁당사자 정보 노출로 이어질 수 있어 **비공개 채널**로 접수합니다.
 
 - GitHub Private Security Advisory: [Report a vulnerability](../../security/advisories/new)
-- 이메일: **dkkim.esq@gmail.com** (PGP 키 요청 가능)
+- 이메일: **dk@trinos.group** (PGP 키 요청 가능)
 - 제보 시 포함 항목
   - 취약 시나리오 및 영향도 (자금 동결/탈취, 배심 조작, 거버넌스 우회 등)
   - 재현 절차 (PoC 코드 또는 트랜잭션 해시)
