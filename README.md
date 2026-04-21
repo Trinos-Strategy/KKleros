@@ -76,7 +76,7 @@ npx hardhat test
 
 ## 라이선스
 
-TBD — 라이선스 확정 전까지 외부 배포/재사용은 관리자 승인 후 진행해 주세요.
+MIT License — 자세한 내용은 [LICENSE](./LICENSE)를 참조하세요.
 
 ## 연락처
 
