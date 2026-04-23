@@ -46,7 +46,7 @@
   "overrides": {
     "undici": "^6.24.0",
     "hardhat": {
-      "undici": "$undici"
+      "undici": "^6.24.0"
     }
   }
 }
