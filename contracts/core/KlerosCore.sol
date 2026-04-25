@@ -447,61 +447,61 @@ contract KlerosCore is
     }
 
     /**
-     * @notice 중재인 서명으로 판정 확정
-     * @dev Resolved → Appealable 전이
-     *      3일 경과 시 autoConfirm()으로 대체 가능
+     * @notice 중재인의 최종 판정 서명 (단심제 절차)
+     * @dev Appealable → Signed 전이.
+     *      한국 중재법상 단심제 원칙에 따라 중재인의 서명은 항소 기간이 도과한
+     *      후에만 가능하다 — 서명 자체가 판정을 최종·구속적으로 만드는 행위이며,
+     *      서명 이후 어떠한 항소도 받지 않는다.
      */
     function signAward(uint256 _disputeID, bytes calldata _signature)
         external
         override
         onlyValidDispute(_disputeID)
-        onlyStatus(_disputeID, DataStructures.DisputeStatus.Resolved)
+        onlyStatus(_disputeID, DataStructures.DisputeStatus.Appealable)
         onlyDisputeArbitrator(_disputeID)
     {
         DataStructures.Dispute storage d = _disputes[_disputeID];
         if (d.arbitratorSigned) revert AlreadySigned(_disputeID);
 
-        // Verify signing is within period
-        if (block.timestamp > d.lastStatusChangeAt + SIGNING_PERIOD)
-            revert SigningPeriodExpired(_disputeID);
+        // 단심제: 항소 기간이 도과해야 서명 가능
+        if (block.timestamp < d.lastStatusChangeAt + APPEAL_PERIOD)
+            revert AppealPeriodNotExpired(_disputeID);
 
         // TODO: Verify EIP-712 signature against ruling hash (MVP: trust msg.sender == arbitrator)
         d.arbitratorSigned = true;
-        _changeStatus(_disputeID, DataStructures.DisputeStatus.Appealable);
+        _changeStatus(_disputeID, DataStructures.DisputeStatus.Signed);
 
         emit AwardSigned(_disputeID, msg.sender);
-        emit AppealPossible(_disputeID, d.arbitrable); // ERC-792
     }
 
     /**
      * @notice 중재인 서명 지연 시 자동 확정 (permissionless)
-     * @dev Edge case §6.5: 3일 경과 시 누구나 호출 → Appealable 전이
-     *      중재인 보수 50% DAO 트레저리 환수
+     * @dev Edge case §6.5: 항소 기간 + SIGNING_PERIOD 경과 시 누구나 호출 → Signed 전이.
+     *      중재인 보수 50% DAO 트레저리 환수.
      */
     function autoConfirmAward(uint256 _disputeID)
         external
         onlyValidDispute(_disputeID)
-        onlyStatus(_disputeID, DataStructures.DisputeStatus.Resolved)
+        onlyStatus(_disputeID, DataStructures.DisputeStatus.Appealable)
     {
         DataStructures.Dispute storage d = _disputes[_disputeID];
         require(
-            block.timestamp > d.lastStatusChangeAt + SIGNING_PERIOD,
-            "Signing period not yet expired"
+            block.timestamp > d.lastStatusChangeAt + APPEAL_PERIOD + SIGNING_PERIOD,
+            "Appeal+Signing period not yet expired"
         );
 
         d.arbitratorSigned = true; // Auto-confirmed
-        _changeStatus(_disputeID, DataStructures.DisputeStatus.Appealable);
+        _changeStatus(_disputeID, DataStructures.DisputeStatus.Signed);
 
         // Arbitrator penalty: 50% of arbitrator fee goes to DAO
         // (Already distributed at dispute creation — penalty tracked off-chain in MVP)
 
         emit AwardSigned(_disputeID, address(0)); // address(0) = auto-confirmed
-        emit AppealPossible(_disputeID, d.arbitrable);
     }
 
     /**
      * @notice 판정 집행 (permissionless)
-     * @dev 항소 기간 만료 후 누구나 호출 가능
+     * @dev Signed 상태에서만 가능. 항소 기간은 이미 signAward에서 강제됨.
      *      IArbitrable.rule() 호출 → EscrowBridge 연동
      */
     function executeRuling(uint256 _disputeID)
@@ -509,13 +509,9 @@ contract KlerosCore is
         override
         nonReentrant
         onlyValidDispute(_disputeID)
-        onlyStatus(_disputeID, DataStructures.DisputeStatus.Appealable)
+        onlyStatus(_disputeID, DataStructures.DisputeStatus.Signed)
     {
         DataStructures.Dispute storage d = _disputes[_disputeID];
-
-        // Ensure appeal period expired
-        if (block.timestamp < d.lastStatusChangeAt + APPEAL_PERIOD)
-            revert AppealPeriodNotExpired(_disputeID);
 
         _changeStatus(_disputeID, DataStructures.DisputeStatus.Executed);
 
@@ -557,7 +553,8 @@ contract KlerosCore is
 
     /**
      * @notice 투표 집계 트리거 (Reveal 종료 후)
-     * @dev Reveal → Resolved 전이
+     * @dev Reveal → Appealable 전이. 단심제 절차상 집계 즉시 항소 기간이 시작된다.
+     *      AppealPossible 이벤트(ERC-792)는 여기서 emit한다.
      */
     function triggerTally(uint256 _disputeID)
         external
@@ -569,7 +566,9 @@ contract KlerosCore is
 
         DataStructures.Dispute storage d = _disputes[_disputeID];
         d.ruling = ruling;
-        _changeStatus(_disputeID, DataStructures.DisputeStatus.Resolved);
+        _changeStatus(_disputeID, DataStructures.DisputeStatus.Appealable);
+
+        emit AppealPossible(_disputeID, d.arbitrable); // ERC-792 — appeal window opens
 
         // TODO: Trigger slashing/reward via SortitionModule
         // In MVP, slashing is deferred to a separate batch call

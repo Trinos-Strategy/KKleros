@@ -453,7 +453,7 @@ async function main() {
     await pace(700);
     console.log();
     ok(`${bold("Ruling: " + rulingLabel)}`);
-    info(`Status: Resolved (${d.status})`);
+    info(`Status: Appealable (${d.status}) — appeal window opens immediately (single-instance)`);
     await pace(1100);
 
     // ────────────────────────────────────────────────────────────────
@@ -490,18 +490,26 @@ async function main() {
     await pace(700);
 
     // ────────────────────────────────────────────────────────────────
-    // PHASE 11 — Sign & execute
+    // PHASE 11 — Appeal window, final signing, and execution
+    //   Single-instance arbitration (단심제):
+    //   appeal window must elapse before the arbitrator can finalize.
     // ────────────────────────────────────────────────────────────────
-    phase(11, "Award Signing & Execution");
+    phase(11, "Appeal Window → Final Signing → Execution");
     await pace(900);
 
-    await (core as any).connect(arbitrator).signAward(disputeID, "0x");
-    d = await (core as any).getDispute(disputeID);
-    ok(`Arbitrator signed the award  Status: Appealable (${d.status})`);
-    await pace(700);
+    step(bold("Appeal window open (single-instance, 7 days)"));
+    info("Either party may file an appeal during this period.");
+    info("No appeal filed in this scenario.");
+    await pace(900);
 
     await time.increase(APPEAL_PERIOD_SEC + 1);
-    info(yellow(`⏳ Appeal period elapsed (7 days simulated) — no appeal filed`));
+    info(yellow(`⏳ Appeal period elapsed (7 days simulated)`));
+    await pace(900);
+
+    // Arbitrator signs the FINAL award — only allowed after appeal window
+    await (core as any).connect(arbitrator).signAward(disputeID, "0x");
+    d = await (core as any).getDispute(disputeID);
+    ok(`Arbitrator signed the final award  Status: Signed (${d.status})`);
     await pace(800);
 
     await (core as any).connect(outsider).executeRuling(disputeID);

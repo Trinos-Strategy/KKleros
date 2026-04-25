@@ -155,11 +155,11 @@ describe("Integration — Trianum full protocol", function () {
                     .revealVote(disputeID, choices[i], salts[i]);
             }
 
-            // 11. Tally
+            // 11. Tally → Appealable (single-instance: appeal window opens immediately on tally)
             await time.increase(REVEAL_PERIOD_SEC + 1);
             await (p.core as any).triggerTally(disputeID);
             d = await (p.core as any).getDispute(disputeID);
-            expect(d.status).to.equal(DisputeStatus.Resolved);
+            expect(d.status).to.equal(DisputeStatus.Appealable);
             expect(d.ruling).to.equal(Vote.AwardA);
 
             // 12. Slash minority + reward majority (admin re-granted KLEROS_CORE_ROLE in fixture)
@@ -184,13 +184,15 @@ describe("Integration — Trianum full protocol", function () {
                     .reward(m.address, disputeID, rewardAmount);
             }
 
-            // 13. Sign award → Appealable
+            // 13. Skip appeal period (single-instance: 7 days for objection window)
+            await time.increase(APPEAL_PERIOD_SEC + 1);
+
+            // 14. Arbitrator signs the FINAL award — only allowed post-appeal-period
             await (p.core as any).connect(p.arbitrator).signAward(disputeID, "0x");
             d = await (p.core as any).getDispute(disputeID);
-            expect(d.status).to.equal(DisputeStatus.Appealable);
+            expect(d.status).to.equal(DisputeStatus.Signed);
 
-            // 14. Skip appeal period and execute
-            await time.increase(APPEAL_PERIOD_SEC + 1);
+            // 15. Execute ruling
             await (p.core as any).connect(p.outsider).executeRuling(disputeID);
             d = await (p.core as any).getDispute(disputeID);
             expect(d.status).to.equal(DisputeStatus.Executed);
