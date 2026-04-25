@@ -30,6 +30,7 @@ export const COURT_GENERAL = 0;
 export const Vote = { Refused: 0, AwardA: 1, AwardB: 2 } as const;
 
 // Dispute status enum (mirror DataStructures.DisputeStatus)
+// Order: tally → Appealable(항소창) → [Appealed?] → Signed(중재인 최종서명) → Executed
 export const DisputeStatus = {
     None: 0,
     Created: 1,
@@ -37,10 +38,11 @@ export const DisputeStatus = {
     DualAward: 3,
     Commit: 4,
     Reveal: 5,
-    Resolved: 6,
+    Resolved: 6,    // deprecated — kept for ABI compat, no longer assigned
     Appealable: 7,
     Appealed: 8,
-    Executed: 9,
+    Signed: 9,      // NEW — arbitrator final signature post-appeal-period
+    Executed: 10,   // was 9
 } as const;
 
 // EscrowBridge status enum

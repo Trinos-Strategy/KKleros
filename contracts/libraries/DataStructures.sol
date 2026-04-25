@@ -3,7 +3,8 @@ pragma solidity ^0.8.20;
 
 library DataStructures {
 
-    /// @dev 분쟁 상태
+    /// @dev 분쟁 상태 — 단심제 절차 (single-instance arbitration)
+    /// @notice Order: tally → Appealable(항소창) → [Appealed?] → Signed(중재인 최종서명) → Executed
     enum DisputeStatus {
         None,           // 0: 미생성
         Created,        // 1: 생성됨
@@ -11,10 +12,11 @@ library DataStructures {
         DualAward,      // 3: 중재인 듀얼 어워드 작성 중
         Commit,         // 4: 배심원 커밋 투표 중
         Reveal,         // 5: 배심원 투표 공개 중
-        Resolved,       // 6: 투표 집계 완료
-        Appealable,     // 7: 항소 가능 기간
+        Resolved,       // 6: (deprecated — kept for ABI compat, no longer assigned)
+        Appealable,     // 7: 투표 집계 완료, 단심제 항소 기간 진행 중
         Appealed,       // 8: 항소 접수됨
-        Executed        // 9: 판정 집행 완료
+        Signed,         // 9: 항소 기간 도과 후 중재인 최종 서명 완료
+        Executed        // 10: 판정 집행 완료
     }
 
     /// @dev 법원 유형
