@@ -41,3 +41,7 @@ yarn-error.log*
 # Build outputs
 dist/
 build/
+
+# Re-include legitimate documentation file caught by overly-broad
+# global *token* rules in some contributors' ~/.gitignore_global.
+!docs/token.md
