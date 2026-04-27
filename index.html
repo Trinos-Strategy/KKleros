@@ -3518,6 +3518,170 @@ html[data-lang="en"] .trinity-hanja {
   }
 }
 </style>
+
+  <!-- v1: docs-modal styles (hash-routed documentation viewer) -->
+  <style id="trn-docs-styles">
+    .trn-docs-modal {
+      width: min(1100px, calc(100vw - 32px)) !important;
+      max-width: calc(100vw - 32px) !important;
+      max-height: calc(100vh - 32px) !important;
+      height: auto !important;
+      border: none;
+      border-radius: 16px;
+      padding: 0;
+      background: #0B0F14;
+      color: #E8E4D8;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+    }
+    .trn-docs-modal[open] {
+      display: flex !important;
+      flex-direction: column !important;
+      position: fixed !important;
+      inset: 1rem !important;
+      margin: auto !important;
+      transform: none !important;
+      z-index: 99999 !important;
+      box-sizing: border-box !important;
+    }
+    .trn-docs-modal::backdrop {
+      background: rgba(0,0,0,0.65);
+      backdrop-filter: blur(8px);
+    }
+    .trn-docs-shell {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: hidden;
+      border-radius: inherit;
+    }
+    .trn-docs-nav {
+      background: #141A22;
+      border-right: 1px solid rgba(232,228,216,0.12);
+      padding: 1.25rem 1rem;
+      overflow-y: auto;
+    }
+    .trn-docs-nav h2 {
+      font-family: 'EB Garamond', Georgia, serif;
+      font-size: 1.1rem; font-weight: 500;
+      margin: 0 0 1rem; color: #E8E4D8;
+    }
+    .trn-docs-cat {
+      font-size: 0.65rem; letter-spacing: 0.12em;
+      text-transform: uppercase; color: #6F7682;
+      margin: 1.25rem 0 0.4rem;
+    }
+    .trn-docs-toc { display: flex; flex-direction: column; gap: 0.15rem; }
+    .trn-docs-toc a {
+      display: flex; gap: 0.5rem; align-items: center;
+      padding: 0.5rem 0.65rem; border-radius: 6px;
+      color: #A8AEB8; font-size: 0.85rem; text-decoration: none;
+      transition: background 150ms, color 150ms;
+    }
+    .trn-docs-toc a:hover { background: #1A2230; color: #E8E4D8; }
+    .trn-docs-toc a.active {
+      background: rgba(95,186,138,0.12); color: #5FBA8A; font-weight: 500;
+    }
+    .trn-docs-content-wrap {
+      display: flex; flex-direction: column;
+      min-height: 0; min-width: 0;
+    }
+    .trn-docs-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.85rem 1.25rem;
+      border-bottom: 1px solid rgba(232,228,216,0.12);
+      background: #1A2230;
+      flex: 0 0 auto;
+    }
+    .trn-docs-header h3 {
+      font-family: 'EB Garamond', Georgia, serif;
+      font-size: 1rem; font-weight: 500; margin: 0;
+      color: #5FBA8A;
+    }
+    .trn-docs-close {
+      width: 2rem; height: 2rem; border-radius: 50%;
+      border: 1px solid rgba(232,228,216,0.18);
+      background: transparent; color: #E8E4D8;
+      font-size: 1.3rem; cursor: pointer;
+      display: grid; place-items: center;
+      transition: background 150ms, transform 150ms;
+    }
+    .trn-docs-close:hover { background: #141A22; transform: scale(1.06); }
+    .trn-docs-content {
+      overflow-y: auto;
+      padding: 2rem clamp(1.25rem, 3vw, 3rem);
+      font-family: 'Pretendard', system-ui, sans-serif;
+      font-size: 0.95rem; line-height: 1.75;
+      flex: 1 1 auto; min-height: 0;
+    }
+    .trn-docs-content h1, .trn-docs-content h2, .trn-docs-content h3 {
+      font-family: 'EB Garamond', Georgia, serif;
+      font-weight: 500; color: #E8E4D8;
+    }
+    .trn-docs-content h1 { font-size: clamp(1.4rem, 1.2rem + 0.8vw, 1.9rem); margin: 0 0 0.75rem; }
+    .trn-docs-content h2 {
+      font-size: clamp(1.15rem, 1.05rem + 0.4vw, 1.4rem);
+      margin: 2rem 0 0.6rem; padding-top: 1.25rem;
+      border-top: 1px solid rgba(232,228,216,0.12); color: #5FBA8A;
+    }
+    .trn-docs-content h3 { font-size: 1rem; margin: 1.4rem 0 0.4rem; }
+    .trn-docs-content p { margin: 0 0 0.9rem; }
+    .trn-docs-content strong { color: #5FBA8A; }
+    .trn-docs-content em { color: #A8AEB8; font-style: italic; }
+    .trn-docs-content blockquote {
+      border-left: 3px solid #5FBA8A;
+      margin: 1rem 0; padding: 0.4rem 1rem;
+      background: #1A2230; border-radius: 0 6px 6px 0;
+      color: #A8AEB8; font-style: italic;
+    }
+    .trn-docs-content ul, .trn-docs-content ol { padding-left: 1.5rem; margin: 0 0 1rem; }
+    .trn-docs-content li { line-height: 1.7; margin: 0.2rem 0; }
+    .trn-docs-content code {
+      font-family: 'JetBrains Mono', Menlo, monospace;
+      font-size: 0.85em; background: #1A2230;
+      padding: 0.12em 0.4em; border-radius: 4px; color: #E07A8E;
+    }
+    .trn-docs-content pre {
+      font-family: 'JetBrains Mono', Menlo, monospace;
+      font-size: 0.8rem; background: #141A22;
+      border: 1px solid rgba(232,228,216,0.12);
+      border-radius: 8px; padding: 1rem; overflow-x: auto; line-height: 1.5;
+    }
+    .trn-docs-content pre code { background: transparent; padding: 0; color: #E8E4D8; }
+    .trn-docs-content table {
+      border-collapse: collapse; width: 100%; margin: 0.85rem 0 1.4rem;
+      font-size: 0.85rem;
+    }
+    .trn-docs-content th, .trn-docs-content td {
+      text-align: left; padding: 0.55rem 0.8rem;
+      border-bottom: 1px solid rgba(232,228,216,0.12);
+    }
+    .trn-docs-content th {
+      font-weight: 600; background: #1A2230; color: #5FBA8A;
+      font-size: 0.72rem; letter-spacing: 0.04em; text-transform: uppercase;
+    }
+    .trn-docs-content tr:hover td { background: #1A2230; }
+    .trn-docs-content hr { border: 0; border-top: 1px solid rgba(232,228,216,0.12); margin: 1.5rem 0; }
+    .trn-docs-content a {
+      color: #5FBA8A; border-bottom: 1px solid transparent;
+      transition: border 150ms; text-decoration: none;
+    }
+    .trn-docs-content a:hover { border-bottom-color: #5FBA8A; }
+    .trn-docs-loading, .trn-docs-error {
+      text-align: center; padding: 4rem 1rem;
+      color: #6F7682; font-style: italic;
+    }
+    .trn-docs-error { color: #E07A8E; }
+    @media (max-width: 768px) {
+      .trn-docs-shell { grid-template-columns: 1fr; }
+      .trn-docs-nav {
+        border-right: none;
+        border-bottom: 1px solid rgba(232,228,216,0.12);
+        max-height: 35vh;
+      }
+    }
+  </style>
+
 </head>
 <body>
 
@@ -7198,7 +7362,7 @@ TRN Token</div>
   </script>
     <!-- v1: Read Full Documentation CTA -->
     <div class="tri-docs-cta" style="margin: 3rem auto 1rem; text-align: center; max-width: 720px;">
-      <a href="/docs.html?doc=rules"
+      <a href="#docs/rules"
          style="display: inline-flex; align-items: center; gap: 0.6rem;
                 padding: 0.95rem 1.75rem; border-radius: 999px;
                 background: var(--tri-vellum); color: var(--tri-emerald);
@@ -7557,6 +7721,169 @@ TRN Token</div>
 </script>
   
 <!-- TRIANUM 4-VIDEO ASSET GRID -->
+
+
+  <!-- v1: docs-modal markup (hash-routed documentation viewer) -->
+  <dialog id="trn-docs-modal" class="trn-docs-modal" aria-label="Trianum Documentation">
+    <div class="trn-docs-shell">
+      <aside class="trn-docs-nav">
+        <h2>Trianum Docs</h2>
+        <div class="trn-docs-cat">Normative</div>
+        <div class="trn-docs-toc" id="trn-docs-toc-norm"></div>
+        <div class="trn-docs-cat">Internal Analysis</div>
+        <div class="trn-docs-toc" id="trn-docs-toc-int"></div>
+      </aside>
+      <div class="trn-docs-content-wrap">
+        <header class="trn-docs-header">
+          <h3 id="trn-docs-title">Loading…</h3>
+          <button type="button" class="trn-docs-close" data-trn-docs-close aria-label="Close">×</button>
+        </header>
+        <article class="trn-docs-content" id="trn-docs-article">
+          <div class="trn-docs-loading">Loading documentation…</div>
+        </article>
+      </div>
+    </div>
+  </dialog>
+
+
+  <!-- v1: docs-modal hash routing -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@11/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+  <script id="trn-docs-script">
+  (function () {
+    'use strict';
+    var TOC = [
+      { cat: 'norm', slug: 'rules',                title: 'Arbitration Rules v0.2',         icon: '📜' },
+      { cat: 'norm', slug: 'annex-d',              title: 'Annex D · Enforceability Test',  icon: '🔍' },
+      { cat: 'norm', slug: 'annex-e',              title: 'Annex E · KAA Compliance',       icon: '⚖️' },
+      { cat: 'int',  slug: 'design-commentary',    title: 'Design Commentary v2.0',         icon: '📝' },
+      { cat: 'int',  slug: 'game-theory-memo',     title: 'Game Theory Memo',               icon: '🎲' },
+      { cat: 'int',  slug: 'simulation-results',   title: 'Simulation Results',             icon: '📊' }
+    ];
+    var RAW_BASE = 'https://raw.githubusercontent.com/Trinos-Strategy/Trianum/main/docs/';
+
+    var modal = document.getElementById('trn-docs-modal');
+    var article = document.getElementById('trn-docs-article');
+    var titleEl = document.getElementById('trn-docs-title');
+    if (!modal || !article || !titleEl) return;
+
+    function renderTOC(activeSlug) {
+      var groups = { norm: [], int: [] };
+      TOC.forEach(function (item) { groups[item.cat].push(item); });
+      ['norm', 'int'].forEach(function (cat) {
+        var wrap = document.getElementById('trn-docs-toc-' + cat);
+        if (!wrap) return;
+        wrap.innerHTML = groups[cat].map(function (item) {
+          var cls = item.slug === activeSlug ? 'active' : '';
+          return '<a href="#docs/' + item.slug + '" class="' + cls + '">'
+               + '<span>' + item.icon + '</span>'
+               + '<span>' + item.title + '</span></a>';
+        }).join('');
+      });
+    }
+
+    function configureMarked() {
+      if (typeof marked === 'undefined') return;
+      marked.setOptions({ gfm: true, breaks: false });
+      var renderer = new marked.Renderer();
+      var origLink = renderer.link.bind(renderer);
+      renderer.link = function (href, title, text) {
+        var out = origLink(href, title, text);
+        if (href && /^https?:\/\//.test(href)) {
+          return out.replace('<a ', '<a target="_blank" rel="noopener" ');
+        }
+        if (href && href.charAt(0) === '#') {
+          return out;
+        }
+        return out;
+      };
+      marked.use({ renderer: renderer });
+    }
+
+    function loadDoc(slug) {
+      var item = TOC.find(function (x) { return x.slug === slug; });
+      titleEl.textContent = item ? item.title : slug;
+      article.innerHTML = '<div class="trn-docs-loading">Loading…</div>';
+      renderTOC(slug);
+
+      fetch(RAW_BASE + slug + '.md', { mode: 'cors', cache: 'default' })
+        .then(function (r) {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          var ct = r.headers.get('content-type') || '';
+          if (ct.indexOf('html') !== -1) throw new Error('SPA fallback returned HTML');
+          return r.text();
+        })
+        .then(function (md) {
+          var rendered = (typeof marked !== 'undefined') ? marked.parse(md) : md;
+          var safe = (typeof DOMPurify !== 'undefined')
+            ? DOMPurify.sanitize(rendered, { ADD_ATTR: ['target'] })
+            : rendered;
+          article.innerHTML = safe;
+          article.scrollTop = 0;
+        })
+        .catch(function (err) {
+          article.innerHTML =
+            '<div class="trn-docs-error">' +
+              '<strong>문서를 불러올 수 없습니다.</strong><br>' +
+              'Could not load: <code>docs/' + slug + '.md</code><br>' +
+              '<small>' + (err.message || err) + '</small>' +
+            '</div>';
+        });
+    }
+
+    function openModal(slug) {
+      configureMarked();
+      if (!modal.open) {
+        try { modal.showModal(); }
+        catch (_) { modal.setAttribute('open', ''); }
+      }
+      loadDoc(slug);
+    }
+
+    function closeModal() {
+      try { modal.close(); } catch (_) {}
+      modal.removeAttribute('open');
+      // Clear hash without scroll-jump
+      if (location.hash.indexOf('#docs/') === 0) {
+        history.pushState('', document.title, location.pathname + location.search);
+      }
+    }
+
+    // Close handlers
+    document.addEventListener('click', function (e) {
+      var c = e.target.closest && e.target.closest('[data-trn-docs-close]');
+      if (c) { closeModal(); return; }
+      // Backdrop click
+      if (e.target === modal) { closeModal(); return; }
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && modal.open) closeModal();
+    });
+
+    // Hash routing
+    function handleHash() {
+      var h = location.hash || '';
+      var m = h.match(/^#docs\/([\w-]+)/);
+      if (m) {
+        var slug = m[1];
+        if (TOC.find(function (x) { return x.slug === slug; })) {
+          openModal(slug);
+          return;
+        }
+      }
+      // No matching docs hash → ensure modal closed
+      if (modal.open) closeModal();
+    }
+
+    window.addEventListener('hashchange', handleHash);
+    // On page load, check hash
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', handleHash);
+    } else {
+      handleHash();
+    }
+  })();
+  </script>
 
 </body>
 </html>
