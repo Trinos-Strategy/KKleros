@@ -1,148 +1,252 @@
-import { ethers, upgrades } from "hardhat";
+/**
+ * Trianum Protocol — Devnet Deployment Script
+ *
+ * Deploys the full Trianum contract suite to a target network (default
+ * `xrplEvmDevnet`, chain ID 1440002) and writes the resulting addresses
+ * to `deployments/<network>.json` for downstream consumption by the UI,
+ * verification script, and KFIP application.
+ *
+ * Usage:
+ *   DEPLOYER_PRIVATE_KEY=0x...  npx hardhat run scripts/deploy.ts --network xrplEvmDevnet
+ *
+ * Environment variables:
+ *   DEPLOYER_PRIVATE_KEY  (required)  — private key of the deployer (also acts as admin)
+ *   DAO_TREASURY_ADDR     (optional)  — defaults to deployer
+ *   OPS_WALLET_ADDR       (optional)  — defaults to deployer
+ *
+ * Notes:
+ *   - On a single-EOA devnet deployment, the deployer doubles as admin,
+ *     daoTreasury, and operationsWallet. For mainnet these MUST be
+ *     separated (multi-sig).
+ *   - MockAxelarGateway is used on devnet. Mainnet must inject the real
+ *     Axelar GMP gateway address via env (not implemented here — Wave 5
+ *     mainnet deployment script).
+ *   - MockArbitrable is included for Phase 0 self-demo dispute origination.
+ *   - All upgradeable contracts use UUPS proxy pattern.
+ */
+
+import { ethers, upgrades, network } from "hardhat";
+import * as fs from "fs";
+import * as path from "path";
+
+const ONE_ETHER = 10n ** 18n;
+
+interface DeploymentRecord {
+  network: string;
+  chainId: number;
+  timestamp: string;
+  deployer: string;
+  contracts: {
+    TRNToken: string;
+    SortitionModule: string;
+    DisputeKit: string;
+    MockAxelarGateway: string;
+    EscrowBridge: string;
+    KlerosCore: string;
+    MockArbitrable: string;
+    TimelockController: string;
+    TrianumGovernor: string;
+  };
+  roles: {
+    daoTreasury: string;
+    operationsWallet: string;
+    admin: string;
+  };
+}
 
 async function main() {
   const [deployer] = await ethers.getSigners();
-  console.log("Deploying with:", deployer.address);
+  const net = await ethers.provider.getNetwork();
+  const chainId = Number(net.chainId);
 
-  // 1. TRNToken
-  const TRNToken = await ethers.getContractFactory("TRNToken");
-  const trn = await upgrades.deployProxy(TRNToken, [deployer.address], { kind: "uups" });
-  await trn.waitForDeployment();
-  console.log("TRNToken:", await trn.getAddress());
+  console.log("=".repeat(60));
+  console.log("  Trianum Devnet Deployment");
+  console.log(`  Network    : ${network.name} (chainId ${chainId})`);
+  console.log(`  Deployer   : ${deployer.address}`);
+  console.log(`  Balance    : ${ethers.formatEther(await ethers.provider.getBalance(deployer.address))} XRP`);
+  console.log("=".repeat(60));
 
-  // 2. SortitionModule (admin, trn, klerosCore placeholder=deployer — wired via setKlerosCore after KlerosCore deploys)
-  const SortitionModule = await ethers.getContractFactory("SortitionModule");
-  const sortition = await upgrades.deployProxy(SortitionModule, [
-    deployer.address,
-    await trn.getAddress(),
-    deployer.address
-  ], { kind: "uups" });
+  // Sanity checks before any tx
+  if (chainId === 31337) {
+    console.warn("WARNING: deploying to local Hardhat network. Use --network xrplEvmDevnet for devnet.");
+  } else if (chainId !== 1440002) {
+    throw new Error(`Unexpected chainId ${chainId}. Expected 1440002 for xrplEvmDevnet.`);
+  }
+  const balance = await ethers.provider.getBalance(deployer.address);
+  if (chainId !== 31337 && balance < ethers.parseEther("0.5")) {
+    throw new Error(`Deployer balance ${ethers.formatEther(balance)} XRP is insufficient. Need ≥0.5 XRP for gas.`);
+  }
+
+  const admin = deployer.address;
+  const daoTreasury = process.env.DAO_TREASURY_ADDR || deployer.address;
+  const operationsWallet = process.env.OPS_WALLET_ADDR || deployer.address;
+
+  // ────────────────────────────────────────────────────────────────
+  // 1. TRNToken (UUPS proxy)
+  // ────────────────────────────────────────────────────────────────
+  console.log("\n[1/9] Deploying TRNToken...");
+  const TRN = await ethers.getContractFactory("TRNToken");
+  const trnToken = await upgrades.deployProxy(TRN, [admin], { kind: "uups" });
+  await trnToken.waitForDeployment();
+  const trnAddr = await trnToken.getAddress();
+  console.log(`      ✓ TRNToken         ${trnAddr}`);
+
+  // ────────────────────────────────────────────────────────────────
+  // 2. SortitionModule (UUPS proxy)
+  // ────────────────────────────────────────────────────────────────
+  console.log("\n[2/9] Deploying SortitionModule...");
+  const Sort = await ethers.getContractFactory("SortitionModule");
+  const sortition = await upgrades.deployProxy(
+    Sort,
+    [admin, trnAddr, admin],
+    { kind: "uups" },
+  );
   await sortition.waitForDeployment();
-  console.log("SortitionModule:", await sortition.getAddress());
+  const sortAddr = await sortition.getAddress();
+  console.log(`      ✓ SortitionModule  ${sortAddr}`);
 
-  // 3. DisputeKit (admin, klerosCore placeholder=deployer — wired via setKlerosCore after KlerosCore deploys)
-  const DisputeKit = await ethers.getContractFactory("DisputeKit");
-  const disputeKit = await upgrades.deployProxy(DisputeKit, [deployer.address, deployer.address], { kind: "uups" });
+  // ────────────────────────────────────────────────────────────────
+  // 3. DisputeKit (UUPS proxy)
+  // ────────────────────────────────────────────────────────────────
+  console.log("\n[3/9] Deploying DisputeKit...");
+  const DK = await ethers.getContractFactory("DisputeKit");
+  const disputeKit = await upgrades.deployProxy(DK, [admin, admin], { kind: "uups" });
   await disputeKit.waitForDeployment();
-  console.log("DisputeKit:", await disputeKit.getAddress());
+  const dkAddr = await disputeKit.getAddress();
+  console.log(`      ✓ DisputeKit       ${dkAddr}`);
 
-  // 4. EscrowBridge must be deployed before KlerosCore (which requires a non-zero escrow address)
-  //    Init: (admin, gateway, klerosCore placeholder=deployer, xrplChainName, xrplDestinationContract)
-  const AXELAR_GATEWAY = process.env.AXELAR_GATEWAY ?? ethers.ZeroAddress;
-  const XRPL_CHAIN = process.env.XRPL_CHAIN_NAME ?? "xrpl";
-  const XRPL_DEST = process.env.XRPL_DESTINATION_CONTRACT ?? "rTestDestinationAccount";
-  if (AXELAR_GATEWAY === ethers.ZeroAddress) {
-    throw new Error("AXELAR_GATEWAY env var required for EscrowBridge deployment");
-  }
-  const EscrowBridge = await ethers.getContractFactory("EscrowBridge");
-  const escrow = await upgrades.deployProxy(EscrowBridge, [
-    deployer.address,
-    AXELAR_GATEWAY,
-    deployer.address,
-    XRPL_CHAIN,
-    XRPL_DEST
-  ], { kind: "uups" });
+  // ────────────────────────────────────────────────────────────────
+  // 4. MockAxelarGateway (devnet stand-in for real Axelar GMP)
+  // ────────────────────────────────────────────────────────────────
+  console.log("\n[4/9] Deploying MockAxelarGateway...");
+  const Gw = await ethers.getContractFactory("MockAxelarGateway");
+  const gateway = await Gw.deploy();
+  await gateway.waitForDeployment();
+  const gwAddr = await gateway.getAddress();
+  console.log(`      ✓ MockAxelarGateway ${gwAddr}`);
+
+  // ────────────────────────────────────────────────────────────────
+  // 5. EscrowBridge (UUPS proxy)
+  // ────────────────────────────────────────────────────────────────
+  console.log("\n[5/9] Deploying EscrowBridge...");
+  const EB = await ethers.getContractFactory("EscrowBridge");
+  const escrow = await upgrades.deployProxy(
+    EB,
+    [admin, gwAddr, admin, "xrpl", "rXRPLTestDestination"],
+    { kind: "uups" },
+  );
   await escrow.waitForDeployment();
-  console.log("EscrowBridge:", await escrow.getAddress());
+  const escrowAddr = await escrow.getAddress();
+  console.log(`      ✓ EscrowBridge     ${escrowAddr}`);
 
-  // 5. KlerosCore (admin, disputeKit, sortition, escrow, daoTreasury, operationsWallet)
-  const daoTreasury = process.env.DAO_TREASURY ?? deployer.address;
-  const operationsWallet = process.env.OPERATIONS_WALLET ?? deployer.address;
-  const KlerosCore = await ethers.getContractFactory("KlerosCore");
-  const core = await upgrades.deployProxy(KlerosCore, [
-    deployer.address,
-    await disputeKit.getAddress(),
-    await sortition.getAddress(),
-    await escrow.getAddress(),
-    daoTreasury,
-    operationsWallet
-  ], { kind: "uups" });
+  // ────────────────────────────────────────────────────────────────
+  // 6. KlerosCore (UUPS proxy)
+  // ────────────────────────────────────────────────────────────────
+  console.log("\n[6/9] Deploying KlerosCore...");
+  const KC = await ethers.getContractFactory("KlerosCore");
+  const core = await upgrades.deployProxy(
+    KC,
+    [admin, dkAddr, sortAddr, escrowAddr, daoTreasury, operationsWallet],
+    { kind: "uups" },
+  );
   await core.waitForDeployment();
-  console.log("KlerosCore:", await core.getAddress());
+  const coreAddr = await core.getAddress();
+  console.log(`      ✓ KlerosCore       ${coreAddr}`);
 
-  // 6. Phase-1 DAO governance: OZ TimelockController + TrianumGovernor
-  const TIMELOCK_MIN_DELAY = Number(process.env.TIMELOCK_MIN_DELAY ?? 24 * 60 * 60); // 24h default
-  const VOTING_DELAY = Number(process.env.VOTING_DELAY ?? 7200);      // ~1d of 12s blocks
-  const VOTING_PERIOD = Number(process.env.VOTING_PERIOD ?? 50400);   // ~7d of 12s blocks
-  const PROPOSAL_THRESHOLD = process.env.PROPOSAL_THRESHOLD
-    ? BigInt(process.env.PROPOSAL_THRESHOLD)
-    : ethers.parseUnits("10000", 18);
-  const QUORUM_PERCENT = Number(process.env.QUORUM_PERCENT ?? 4);
+  // ────────────────────────────────────────────────────────────────
+  // 7. MockArbitrable (for Phase 0 self-demo dispute origination)
+  // ────────────────────────────────────────────────────────────────
+  console.log("\n[7/9] Deploying MockArbitrable...");
+  const Arb = await ethers.getContractFactory("MockArbitrable");
+  const mockArbitrable = await Arb.deploy(coreAddr);
+  await mockArbitrable.waitForDeployment();
+  const arbAddr = await mockArbitrable.getAddress();
+  console.log(`      ✓ MockArbitrable   ${arbAddr}`);
 
-  const TimelockController = await ethers.getContractFactory("TimelockController");
-  const timelockController = await TimelockController.deploy(
-    TIMELOCK_MIN_DELAY,
-    [],                      // proposers — granted to governor below
-    [ethers.ZeroAddress],    // executors — anyone after delay
-    deployer.address         // initial admin (renounce after setup)
+  // ────────────────────────────────────────────────────────────────
+  // 8. TimelockController + TrianumGovernor (UUPS proxy)
+  // ────────────────────────────────────────────────────────────────
+  console.log("\n[8/9] Deploying TimelockController...");
+  const Timelock = await ethers.getContractFactory("TimelockController");
+  const timelock = await Timelock.deploy(2, [], [ethers.ZeroAddress], admin);
+  await timelock.waitForDeployment();
+  const tlAddr = await timelock.getAddress();
+  console.log(`      ✓ TimelockController ${tlAddr}`);
+
+  console.log("\n[9/9] Deploying TrianumGovernor...");
+  const Governor = await ethers.getContractFactory("TrianumGovernor");
+  const governor = await upgrades.deployProxy(
+    Governor,
+    [trnAddr, tlAddr, admin, 1, 10, 10_000n * ONE_ETHER, 4],
+    { kind: "uups" },
   );
-  await timelockController.waitForDeployment();
-  console.log("TimelockController:", await timelockController.getAddress());
+  await governor.waitForDeployment();
+  const govAddr = await governor.getAddress();
+  console.log(`      ✓ TrianumGovernor  ${govAddr}`);
 
-  const TrianumGovernor = await ethers.getContractFactory("TrianumGovernor");
-  const klerosGovernor = await upgrades.deployProxy(
-    TrianumGovernor,
-    [
-      await trn.getAddress(),
-      await timelockController.getAddress(),
-      deployer.address,
-      VOTING_DELAY,
-      VOTING_PERIOD,
-      PROPOSAL_THRESHOLD,
-      QUORUM_PERCENT,
-    ],
-    { kind: "uups" }
-  );
-  await klerosGovernor.waitForDeployment();
-  console.log("TrianumGovernor:", await klerosGovernor.getAddress());
+  // ────────────────────────────────────────────────────────────────
+  // Cross-wiring & role grants
+  // ────────────────────────────────────────────────────────────────
+  console.log("\n[wiring] Cross-wiring and role grants...");
+  await (await (disputeKit as any).setKlerosCore(coreAddr)).wait();
+  await (await (sortition as any).setKlerosCore(coreAddr)).wait();
+  await (await (escrow as any).setKlerosCore(coreAddr)).wait();
+  await (await (trnToken as any).setSortitionModule(sortAddr)).wait();
+  const PROPOSER_ROLE = await (timelock as any).PROPOSER_ROLE();
+  await (await (timelock as any).grantRole(PROPOSER_ROLE, govAddr)).wait();
+  const KC_ROLE = await (sortition as any).KLEROS_CORE_ROLE();
+  await (await (sortition as any).grantRole(KC_ROLE, admin)).wait();
+  console.log(`      ✓ wiring complete`);
 
-  const PROPOSER_ROLE = await (timelockController as any).PROPOSER_ROLE();
-  const CANCELLER_ROLE = await (timelockController as any).CANCELLER_ROLE();
-  await (timelockController as any).grantRole(PROPOSER_ROLE, await klerosGovernor.getAddress());
-  await (timelockController as any).grantRole(CANCELLER_ROLE, await klerosGovernor.getAddress());
-  console.log("TrianumGovernor -> TimelockController linked (PROPOSER + CANCELLER)");
+  // ────────────────────────────────────────────────────────────────
+  // Persist deployment record
+  // ────────────────────────────────────────────────────────────────
+  const record: DeploymentRecord = {
+    network: network.name,
+    chainId,
+    timestamp: new Date().toISOString(),
+    deployer: deployer.address,
+    contracts: {
+      TRNToken: trnAddr,
+      SortitionModule: sortAddr,
+      DisputeKit: dkAddr,
+      MockAxelarGateway: gwAddr,
+      EscrowBridge: escrowAddr,
+      KlerosCore: coreAddr,
+      MockArbitrable: arbAddr,
+      TimelockController: tlAddr,
+      TrianumGovernor: govAddr,
+    },
+    roles: {
+      daoTreasury,
+      operationsWallet,
+      admin,
+    },
+  };
 
-  // 8. Wire access control
-  await (disputeKit as any).setKlerosCore(await core.getAddress());
-  await (sortition as any).setKlerosCore(await core.getAddress());
-  await (escrow as any).setKlerosCore(await core.getAddress());
-  await (trn as any).setSortitionModule(await sortition.getAddress());
-  console.log("DisputeKit + SortitionModule + EscrowBridge -> KlerosCore linked");
-  console.log("TRNToken -> SortitionModule linked");
-  // Seed deployer for local/testnet experimentation (skip on mainnet once you add a proper distribution plan)
-  if (process.env.SEED_DEPLOYER === "true") {
-    await (trn as any).initialDistribution(
-      [deployer.address],
-      [ethers.parseUnits("1000000000", 18)]
-    );
-    console.log("TRNToken: initial 1B distributed to deployer");
-  }
-  // Optional: transfer ADMIN_ROLE on protocol contracts to the TimelockController
-  // so governance owns them. Opt-in via TRANSFER_ADMIN_TO_TIMELOCK=true because
-  // test harnesses typically expect the deployer to retain admin authority.
-  if (process.env.TRANSFER_ADMIN_TO_TIMELOCK === "true") {
-    const timelockAddr = await timelockController.getAddress();
+  const outDir = path.join(__dirname, "..", "deployments");
+  if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
+  const outPath = path.join(outDir, `${network.name}.json`);
+  fs.writeFileSync(outPath, JSON.stringify(record, null, 2) + "\n");
+  console.log(`\n✓ Deployment record written to ${outPath}`);
 
-    const ADMIN_ROLE_CORE = await (core as any).ADMIN_ROLE();
-    await (core as any).grantRole(ADMIN_ROLE_CORE, timelockAddr);
-    await (core as any).revokeRole(ADMIN_ROLE_CORE, deployer.address);
-
-    const ADMIN_ROLE_SORT = await (sortition as any).ADMIN_ROLE();
-    await (sortition as any).grantRole(ADMIN_ROLE_SORT, timelockAddr);
-    await (sortition as any).revokeRole(ADMIN_ROLE_SORT, deployer.address);
-
-    const ADMIN_ROLE_TRN = await (trn as any).ADMIN_ROLE();
-    await (trn as any).grantRole(ADMIN_ROLE_TRN, timelockAddr);
-    await (trn as any).revokeRole(ADMIN_ROLE_TRN, deployer.address);
-
-    const ADMIN_ROLE_ESC = await (escrow as any).ADMIN_ROLE();
-    await (escrow as any).grantRole(ADMIN_ROLE_ESC, timelockAddr);
-    await (escrow as any).revokeRole(ADMIN_ROLE_ESC, deployer.address);
-
-    console.log("ADMIN_ROLE transferred to TimelockController on Core/Sortition/TRN/Escrow");
-  }
-
-  console.log("\nDeployment complete. Remember to wire access control roles.");
+  // ────────────────────────────────────────────────────────────────
+  // Summary
+  // ────────────────────────────────────────────────────────────────
+  console.log("\n" + "=".repeat(60));
+  console.log("  Deployment complete");
+  console.log("=".repeat(60));
+  console.log(`  KlerosCore       ${coreAddr}`);
+  console.log(`  TRNToken         ${trnAddr}`);
+  console.log(`  Explorer (devnet): https://evm-sidechain.xrpl.org/address/${coreAddr}`);
+  console.log("\n  Next steps:");
+  console.log("    1. Verify contracts:   npx hardhat run scripts/verify.ts --network xrplEvmDevnet");
+  console.log("    2. Seed Phase 0:       npx hardhat run scripts/seed-disputes.ts --network xrplEvmDevnet");
+  console.log("    3. Update neither landing nor application until Wave 5 batch");
+  console.log("=".repeat(60));
 }
 
-main().catch(console.error);
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
